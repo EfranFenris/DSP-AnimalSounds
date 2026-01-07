@@ -1,0 +1,5 @@
+# Ignore audio
+data/**/*.wav
+*.wav
+# macOS junk
+.DS_Store
