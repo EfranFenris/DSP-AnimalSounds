@@ -1,49 +1,53 @@
 clear; clc; close all;
 
-% 1) Pick one example file (here: first cat file)
-files = dir('../data/cat/*.wav');   % or '../data/dog/*.wav'
+% 1) We pick one example file (here: first cat file)
+files = dir('../data/cat/*.wav');
 file  = fullfile(files(1).folder, files(1).name);
 
 [x, fs] = audioread(file);
 
-% 2) Make mono if stereo
-if size(x, 2) > 1
-    x = mean(x, 2);
+% Convert to mono
+if size(x,2) > 1
+    x = mean(x, 2);  % convert to mono
 end
 
-% 3) Resample to common sampling frequency
-fs_target = 16000;       
+% Resample to 16 kHz if needed
+fs_target = 16000;
 if fs ~= fs_target
-    x = resample(x, fs_target, fs);
+    x  = resample(x, fs_target, fs);  
     fs = fs_target;
 end
 
-% 4) Normalize amplitude
-x = x / max(abs(x));
-
-% 5) No cropping needed here, all clips are 5 seconds long
+% there is no need for chopping because all clips are 5 seconds long
 N = length(x);
 
-% Time axis
-t = (0:N-1) / fs;
+% normalize the amplitude so we can make clips comparable
+x = x / max(abs(x));
 
-% 6) Plot time-domain
+% ---- Time domain representation ----
+ t = (0:N-1)/fs;  
+
 figure;
 plot(t, x);
-grid on;
-xlabel('Time [s]');
+xlabel('Time (s)');
 ylabel('Amplitude');
-title('Example - time domain');
+title('Cat audio signal');
+grid on;
+exportgraphics(gcf, fullfile('../figures', 'cat_time.pdf'));
 
-% 7) Frequency-domain (FFT)
-X    = fft(x);
-X    = X(1:N/2+1);          % single-sided
-Xmag = abs(X);
-f    = (0:N/2) * fs / N;
+% ---- Frequency domain representation ----
+X = fft(x);
+X = X / N;                      % Normalize the amplitude
+
+% one-sided spectrum
+N_half = floor(N/2);
+f = (0:N_half) * fs / N;        
+X_mag = abs(X(1:N_half+1));     % Take positive frequencies
 
 figure;
-plot(f, Xmag);
+plot(f, X_mag);
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+title('Frequency Spectrum of Cat audio signal');
 grid on;
-xlabel('Frequency [Hz]');
-ylabel('|X(f)|');
-title('Example - magnitude spectrum');
+exportgraphics(gcf, fullfile('../figures', 'cat_frequency.pdf'));

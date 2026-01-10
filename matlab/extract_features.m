@@ -1,5 +1,5 @@
 function feat = extract_features(x, fs)
-%EXTRACT_FEATURES  Simple DSP features from one mono clip x (1 second, fs Hz)
+%EXTRACT_FEATURES  Simple DSP features from one mono clip x
 %   Returns a row vector: [RMS, ZCR, Centroid, E_low, E_mid, E_high]
 
     N = length(x);
