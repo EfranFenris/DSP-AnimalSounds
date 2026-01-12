@@ -1,0 +1,271 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[MeX]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage{fontenc}
+\usepackage{cite}
+\usepackage{amsmath,amsfonts}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[small]{caption}
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue,urlcolor=blue,pagebackref=true]{hyperref}
+\usepackage[all]{nowidow}
+\usepackage{upquote}
+\usepackage[top=25mm,left=25mm,bottom=25mm,right=25mm]{geometry}
+\usepackage{setspace}
+\renewcommand{\figurename}{Figure}
+\renewcommand{\refname}{References}
+\setstretch{1.1}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{DSP Animal Classifier}
+\author{Efran Fernandez Fernandez, 293866, group (10/2026, 3:22 pm)}
+\date{\today}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+The basic idea of this project is that there are differences in the DSP features extracted from animal sound audio files.
+
+The objective of this project is to demonstrate that it is possible to classify animal sounds only based on some features extracted from the audio itself.
+
+In this project a lot of concepts from the DSP class are used, like Fourier transform, resampling, time-domain analysis, spectral features and band energies.
+
+
+
+\section{Dataset and signal preprocessing}\label{sec:dataset}
+The data set used was ESC-50, a pretty popular data set for enviroment sound classification  \cite{esc50github}. In the final project only 3 animals are being used, although the dataset provides 10 animal classes. This was done to keep things simple and to get better accuracy in the classification part of the work. The animals chosen were dog, cat, and crow, their audio files can be found in the data folder, 40 audio files for each animal, 120 clips total.
+
+The preprocessing of each clip was done with matlab, it can be found in the "matlab/" folder of the project with the name "dataset generator".
+
+\begin{enumerate}
+    \item
+    I load the audio with the function "audioread" and convert the signal to mono, doing the mean between the two channels.
+    \item
+    Resample the signal to $16$~kHz so they are comparable to each other and I get a good running speed.
+    \item
+    I normalize the amplitude, avoiding volume differences dominating the features.
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{figures/cat_time.pdf}
+    \caption{
+    Time domain representation of one of the cat audio clips.
+    }
+    \label{fig:someSignalEPS}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{figures/cat_frequency.pdf}
+    \caption{
+    Frequency domain representation of one of the cat audio clips.
+    }
+    \label{fig:someSignalEPS}
+\end{figure}
+
+\section{Feature extraction}\label{sec:features}
+
+In this part of the project I take every audio clip and I change it into a
+small vector of numbers.  
+These numbers are called \emph{features}.  
+Later the classifier in Python uses only these features, not the full audio
+signal.
+
+All clips are already mono, resampled to $16$~kHz and normalised (see previous
+section).  
+For each clip I use one MATLAB function called \texttt{extract\_features.m}.
+It returns a row vector
+\[
+\big[ \text{RMS},\ \text{ZCR},\ \text{Centroid},\ E_{\text{low}},\ E_{\text{mid}},\ E_{\text{high}} \big].
+\]
+So each sound is described by six numbers.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{RMS energy}
+
+The first feature is the RMS (root mean square) value of the signal.
+For a discrete signal $x[n]$ with $N$ samples it is
+\begin{equation}
+    \text{RMS} = \sqrt{\frac{1}{N}\sum_{n=0}^{N-1} x[n]^2 }.
+\end{equation}
+
+RMS is related to the average power of the signal.  
+Because all clips are normalised, RMS is not about absolute loudness, but it
+still shows if the sound is more active or more quiet in time.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Zero-crossing rate (ZCR)}
+
+The second feature is the zero-crossing rate.  
+It counts how many times the signal changes sign (from positive to negative or
+the other way) in one second.
+
+In MATLAB I first take the sign of the signal using the function
+\verb|sign(x)| and then I count the sign changes.  
+Finally I divide the number of changes by the signal duration in seconds.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Spectral centroid}
+
+Next I look at the spectrum of the signal.  
+I compute the FFT of $x[n]$ and I keep only the positive frequencies.
+Let $X[k]$ be the magnitude spectrum and $f[k]$ the frequency in Hz for bin
+$k$.
+
+The spectral centroid is
+\begin{equation}
+    \text{Centroid} =
+    \frac{\sum_k f[k]\;|X[k]|}{\sum_k |X[k]|}.
+\end{equation}
+
+It tells us where the ``centre of mass'' of the spectrum is.  
+If the sound has more high frequencies, the centroid is higher.  
+If it has more low frequencies, the centroid is lower.  
+This is useful because different animals have different typical frequency
+ranges.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Band energies}
+
+The last three features are the energy in three simple frequency bands.
+After I have the magnitude spectrum $|X[k]|$, I square it to get an energy
+estimate and I sum it inside each band:
+\begin{itemize}
+    \item low band: from $0$ to $1$~kHz,
+    \item mid band: from $1$ to $4$~kHz,
+    \item high band: from $4$~kHz to Nyquist ($8$~kHz for $16$~kHz sampling).
+\end{itemize}
+
+This gives three values: $E_{\text{low}}$, $E_{\text{mid}}$ and
+$E_{\text{high}}$.  
+Some animals have more energy in the low band, some in the mid or high band,
+so these numbers help to separate the classes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Summary of feature vector}
+
+To sum up, for each audio clip I:
+\begin{enumerate}
+    \item read the signal and normalise it,
+    \item compute RMS and ZCR in the time domain,
+    \item compute the FFT,
+    \item calculate the spectral centroid,
+    \item calculate energy in low, mid and high frequency bands.
+\end{enumerate}
+
+The result is a $1 \times 6$ feature vector for each clip.  
+All these vectors are saved to a file \texttt{features.csv} and later used in
+Python to train and test the classifier.
+
+\section{Classification in Python}\label{sec:python}
+
+In this part of the project I use Python to classify the animal sounds.
+The input to Python is the file \texttt{features.csv} that was created in
+MATLAB.
+
+Each row in \texttt{features.csv} is one audio clip.  
+There are $3$ animals (cat, crow, dog) and $40$ clips per animal, so in total
+$120$ rows.  
+For every clip I store:
+\begin{itemize}
+    \item six feature columns: RMS, ZCR, spectral centroid,
+    $E_{\text{low}}$, $E_{\text{mid}}$, $E_{\text{high}}$,
+    \item one label column with the animal name.
+\end{itemize}
+
+\subsection{Data preparation}
+
+In Python I first load the CSV file with \texttt{pandas}.  
+Then I split the data into training and test sets using the function
+\texttt{train\_test\_split} from \texttt{scikit-learn}.  
+The test size is $30\%$, so there are $84$ training clips and $36$ test clips.
+I use \emph{stratified} splitting, so every animal keeps the same proportion
+in train and test sets.
+
+Before training the classifier I standardise the features.  
+I use the class \texttt{StandardScaler}.  
+On the training set it subtracts the mean and divides by the standard
+deviation for each feature.  
+Then I apply the same transformation to the test set.
+This step makes all features have similar scale.
+
+\subsection{Classifier}
+
+As a classifier I use $k$-nearest neighbours (k-NN) from
+\texttt{scikit-learn}.  
+I choose $k = 5$.  
+For a new feature vector the algorithm looks at the $5$ closest training
+points (in feature space) and takes the majority label.
+
+I train the classifier with the standardised training data and the labels.
+After that I predict the labels for the test set and compare them with the
+true labels.
+
+\subsection{Results}
+
+For $k = 5$ I obtain the following accuracy on the test set:
+\[
+\text{accuracy} = 63.89\% .
+\]
+
+The confusion matrix (rows = true class, columns = predicted class) is:
+
+\begin{table}[h]
+    \centering
+    \caption{Confusion matrix for $k=5$.}
+    \begin{tabular}{r|ccc}
+          & cat & crow & dog \\ \hline
+    cat   & 10  &  2   &  0  \\
+    crow  &  7  &  4   &  1  \\
+    dog   &  1  &  2   &  9
+    \end{tabular}
+    \label{tab:confusion}
+\end{table}
+
+From Table~\ref{tab:confusion} we can see that:
+\begin{itemize}
+    \item cat clips are classified correctly in $10$ out of $12$ cases,
+    \item dog clips are also recognised quite well ($9$ out of $12$),
+    \item crow clips are the hardest class and are often confused with cat.
+\end{itemize}
+
+Even with only six simple DSP features, the classifier can separate the three
+animals noticeably better than random guessing.
+
+
+\section{Conclusion}\label{sec:conclusion}
+
+In this project I built a small system that tries to recognise animals from
+their sounds using basic DSP tools.  
+First I prepared the audio clips in MATLAB (mono, $16$~kHz, normalised).  
+Then I extracted six features for each clip: RMS, ZCR, spectral centroid and
+three band energies.  
+These features were saved to a \texttt{.csv} file and used in Python with a
+$k$-nearest neighbours classifier.
+
+For the three animals (cat, crow and dog) the system reached about $64\%$
+accuracy on the test set.  
+Cat and dog were recognised better, while crow was more often confused with
+the other classes.
+
+The results are not perfect, but they show that even very simple DSP features
+already give some useful information to separate different animal sounds.
+With more features or more data it should be possible to improve the
+classification in the future.
+
+\bibliographystyle{unsrt}
+\bibliography{refs}
+
+\end{document}
+
+
+
+
+
+
+
+
