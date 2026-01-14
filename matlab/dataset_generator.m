@@ -17,40 +17,40 @@ for c = 1:length(classes)
     for k = 1:length(files)
         file_path = fullfile(files(k).folder, files(k).name);
 
-        % --- Load audio ---
+        %  Load audio   
         [x, fs] = audioread(file_path);
 
-        % --- Convert to mono (if stereo) ---
+        %  Convert to mono (if stereo)   
         if size(x,2) > 1
             x = mean(x, 2);
         end
 
-        % --- Resample to 16 kHz ---
+        %  Resample to 16 kHz   
         if fs ~= fs_target
             x = resample(x, fs_target, fs);
             fs = fs_target;
         end
 
-        % --- Normalize amplitude ---
+        %  Normalize amplitude   
         x = x / (max(abs(x)));
 
-        % --- Extract DSP features (your function) ---
+        %  Extract DSP features (your function)   
         feat = extract_features(x, fs);   % 1x6 vector
 
-        % --- Save features and label ---
+        %  Save features and label   
         X = [X; feat];                     % add row to matrix
         labels_str{end+1,1} = class_name;  % add a new label (cell array)
     end
 end
 
-% Now create a table so it's easy to export to CSV
+% Now create a table 
 T = array2table(X, ...
     'VariableNames', {'RMS', 'ZCR', 'Centroid', 'E_low', 'E_mid', 'E_high'});
 
 % Add the label column (first column)
 T = addvars(T, labels_str, 'Before', 1, 'NewVariableNames', 'label');
 
-% Save to CSV (Python will read this)
+% Save to CSV 
 writetable(T, 'features.csv');
 
 
