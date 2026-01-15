@@ -17,7 +17,7 @@
 - `python/`  
   Python script `classify.py` that reads `features.csv` and runs k-NN.
 
-- `DSP_project Final.pdf`  
+- `EfranFernandez293866DSP.pdf`  
   Project report written in LaTeX (PDF file).
 
 - `README.md`  
